@@ -15,5 +15,11 @@ class YoloV3(nn.Module):
         out_feats = self.backbone.layers_out_filters
         
         
+    def forward(self, x):
+        
+        feats2,feats1,feats0 = self.backbone(x)
+        
+        
+        
         
         

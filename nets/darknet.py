@@ -37,7 +37,7 @@ class Darknet53(nn.Module):
         
         # downsampling block
         ds_conv = ("ds_conv",
-                    nn.Conv2d(self.in_filters, filters[1], kernel_size=3, stride=2, padding=1, bias=False))
+                    nn.Conv2d(filters[0], filters[1], kernel_size=3, stride=2, padding=1, bias=False))
         ds_bn   = ("ds_bn",
                     nn.BatchNorm2d(filters[1]))
         ds_relu = ("ds_relu",
