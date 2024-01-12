@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 
 class YoloDataset(Dataset):
     
-    def __init__(self, annotation_lines, input_shape, num_classes):
+    def __init__(self, annotation_lines, input_shape, num_classes, train):
         super().__init__()
         
         self.annotation_lines   = annotation_lines
@@ -14,7 +14,9 @@ class YoloDataset(Dataset):
         self.num_classes        = num_classes
         self.length             = len(self.annotation_lines)
         self.train              = train
-        
+    
+    def __len__(self):
+        return self.length
     
     def __getitem__(self, index):
         index = index % self.length
@@ -32,12 +34,12 @@ class YoloDataset(Dataset):
     def get_image_data(self, annotation_line, input_shape):
         line    = annotation_line.split()
         
-        im_path = line[0]
+        im_path = "data/VOC2007/JPEGImages/"+line[0].split('/')[-1]
         
         image = cv.imread(im_path, cv.IMREAD_COLOR)
         image = cv.cvtColor(image, cv.COLOR_BGR2RGB)
         
-        im_H, im_W = image.shape
+        im_H, im_W, chs = image.shape
         in_H, in_W = input_shape
         
         box = np.array([np.array(list(map(int,box.split(',')))) for box in line[1:]])
@@ -50,7 +52,7 @@ class YoloDataset(Dataset):
         dy = (in_H - new_h)//2
         
         im_scaled = cv.resize(image, dsize=(new_w, new_h))
-        im_input = np.ones(in_H, in_W, 3)*128
+        im_input = np.ones((in_H, in_W, 3))*128
         
         # copy scaled img to input img
         im_input[dy:(dy+new_h), dx:(dx+new_w)] = np.array(im_scaled)
@@ -79,6 +81,8 @@ def yolo_dataset_collate(batch):
     images = np.array(images)
     return images, bboxes
 
+def conversion_NCWH(batch_data):
+    return np.transpose(batch_data, (0,3,1,2))
 
 def get_classes(classes_path):
     with open(classes_path, encoding='utf-8') as f:
@@ -97,15 +101,12 @@ def loadData(annotation_path, input_shape, num_classes, batch_size):
     with open(val_annotation_path) as f:
         val_lines   = f.readlines()
         
-    num_train   = len(train_lines)
-    num_val     = len(val_lines)
-    
-    train_dataset   = YoloDataset(train_lines, input_shape, num_classes, train = True)
-    val_dataset     = YoloDataset(val_lines, input_shape, num_classes, train = False)
+    train_dataset   = YoloDataset(train_lines, input_shape, num_classes, True)
+    val_dataset     = YoloDataset(val_lines, input_shape, num_classes, False)
 
-    gen             = DataLoader(train_dataset, shuffle = True, batch_size = batch_size, num_workers = 2, pin_memory=True,
+    gen             = DataLoader(train_dataset, shuffle = True, batch_size = batch_size, num_workers = 1, pin_memory=True,
                             drop_last=True, collate_fn=yolo_dataset_collate)
-    gen_val         = DataLoader(val_dataset  , shuffle = True, batch_size = batch_size, num_workers = 2, pin_memory=True, 
+    gen_val         = DataLoader(val_dataset  , shuffle = True, batch_size = batch_size, num_workers = 1, pin_memory=True, 
                                 drop_last=True, collate_fn=yolo_dataset_collate)
     
     
