@@ -31,7 +31,8 @@ class Darknet53(nn.Module):
         
 
         self.layers_out_filters = [64, 128, 256, 512, 1024]
-        
+    
+    # ResN block
     def DBL_layer(self, filters, residual_blocks):
         layers = []
         
@@ -69,15 +70,17 @@ class Darknet53(nn.Module):
         
         return l3, l4, l5
         
-              
+# Res unit       
 class ResidualBlock(nn.Module):
     def __init__(self, in_filters, filters):
         super(ResidualBlock, self).__init__()
         
+        # DBL 1
         self.conv1 = nn.Conv2d(in_filters, filters[0], kernel_size=1, stride=1, padding=0, bias=False)
         self.bn1 = nn.BatchNorm2d(filters[0])
         self.relu1 = nn.ReLU(0.1)
         
+        # DBL 2
         self.conv2 = nn.Conv2d(filters[0], in_filters, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(in_filters)
         self.relu2 = nn.ReLU(0.1)
@@ -96,6 +99,7 @@ class ResidualBlock(nn.Module):
         out = self.bn2(out)
         out = self.relu2(out)
         
+        # add
         out+= residual
         
         return out
