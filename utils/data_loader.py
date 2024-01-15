@@ -27,7 +27,7 @@ class YoloDataset(Dataset):
             box[:, [1, 3]] = box[:, [1, 3]] / self.input_shape[0]
 
             box[:, 2:4] = box[:, 2:4] - box[:, 0:2]
-            box[:, 0:2] = box[:, 0:2] + box[:, 2:4] / 2
+            box[:, 0:2] = box[:, 0:2] + box[:, 2:4] / 2.0
         
         return image, box
     
@@ -42,7 +42,7 @@ class YoloDataset(Dataset):
         im_H, im_W, chs = image.shape
         in_H, in_W = input_shape
         
-        box = np.array([np.array(list(map(int,box.split(',')))) for box in line[1:]])
+        box = np.array([np.array(list(map(int,box.split(',')))) for box in line[1:]], np.float32)
         
         # scale image with fixed ratio
         scalar = min(in_H/im_H, in_W/im_W)
@@ -101,7 +101,8 @@ def loadData(annotation_path, input_shape, num_classes, batch_size):
     with open(val_annotation_path) as f:
         val_lines   = f.readlines()
         
-    train_dataset   = YoloDataset(train_lines, input_shape, num_classes, True)
+    # train_dataset   = YoloDataset(train_lines, input_shape, num_classes, True)
+    train_dataset   = YoloDataset(train_lines[:200], input_shape, num_classes, True)
     val_dataset     = YoloDataset(val_lines, input_shape, num_classes, False)
 
     gen             = DataLoader(train_dataset, shuffle = True, batch_size = batch_size, num_workers = 1, pin_memory=True,
