@@ -1,4 +1,6 @@
 import torch.nn as nn
+import numpy as np
+
 from collections import OrderedDict
 
 class Darknet53(nn.Module):
@@ -31,6 +33,15 @@ class Darknet53(nn.Module):
         
 
         self.layers_out_filters = [64, 128, 256, 512, 1024]
+        
+        # init weights
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.weight.data.normal_(0, np.sqrt(2. / n))
+            elif isinstance(m, nn.BatchNorm2d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
     
     # ResN block
     def DBL_layer(self, filters, residual_blocks):
@@ -100,6 +111,6 @@ class ResidualBlock(nn.Module):
         out = self.relu2(out)
         
         # add
-        out+= residual
+        out=out + residual
         
         return out
