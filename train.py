@@ -78,7 +78,7 @@ if __name__ == "__main__":
             
             
     print("training is finished")
-    torch.save(model.state_dict(),'model_data/ep%03d-loss%.3f.pth' % (epoch + 1, loss))
+    torch.save(model.state_dict(),'model_data/trained_models/ep%03d-loss%.3f.pth' % (epoch + 1, loss))
     
         
             
