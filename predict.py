@@ -7,7 +7,7 @@ from nets.yoloV3 import YoloV3
 
 
 
- # read classes
+# read classes
 classes_path    = 'model_data/voc_classes.txt'
 class_names, num_classes = dt_loader.get_classes(classes_path)
 
@@ -16,7 +16,7 @@ input_shape     = [416, 416]
 yolo = YoloV3(num_classes, input_shape)
 yolo = yolo.cuda()
 
-model_path = "model_data/trained_models/ep001-loss28.917.pth"
+model_path = "model_data/trained_models/ep001-loss28.pth"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 yolo.load_state_dict(torch.load(model_path, map_location=device))
 
