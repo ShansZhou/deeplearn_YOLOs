@@ -30,7 +30,6 @@ def weights_init(net, init_type='normal', init_gain = 0.02):
 class YoloV3(nn.Module):
     def __init__(self, num_classes, input_shape):
         super().__init__()
-
         # init darknet53
         self.backbone = dnet.Darknet53()
         
@@ -45,7 +44,7 @@ class YoloV3(nn.Module):
         self.nms_thres = 0.4
         
         # confidence threshold
-        self.conf_thres = 0.5
+        self.conf_thres = 0.01
         
         # define anchors : [Width, Height]
         self.anchors = [
@@ -415,6 +414,8 @@ class YoloV3(nn.Module):
                 noobj_mask[b][iou_max>self.NoobjIOU_th] = 0
         
         return noobj_mask
+    
+
         
     # decode bboxes attached with confi and classes
     def decodeBoxWithInfo(self, heads):
@@ -480,7 +481,7 @@ class YoloV3(nn.Module):
             pred_boxes[..., 3]  = torch.exp(h.data) * anchor_h
 
             _scale = torch.Tensor([input_width, input_height, input_width, input_height]).type(FloatTensor)
-            output = torch.cat((pred_boxes.view(batch_size, -1, 4) / _scale,
+            output = torch.cat((pred_boxes.view(batch_size, -1, 4)/_scale,
                                 conf.view(batch_size, -1, 1), pred_cls.view(batch_size, -1, self.numClasses)), -1)
             outputs.append(output.data)
         return outputs
@@ -500,6 +501,7 @@ class YoloV3(nn.Module):
         output = [None for _ in range(len(decodedBoxes))]
         
         for i, image_pred in enumerate(decodedBoxes):
+            # find max classes for each bbox
             class_conf, class_pred = torch.max(image_pred[:, 5:5 + self.numClasses], 1, keepdim=True)
             
             # keep boxes that Pr(class|object) is greater thant conf_thres
@@ -511,28 +513,33 @@ class YoloV3(nn.Module):
             if not image_pred.size(0):
                 continue
             
+            # [p1x,p1y,p2x,p2y,object,class_confi,class]
             detections = torch.cat((image_pred[:, :5], class_conf.float(), class_pred.float()), 1)
+            # find the available classes in unique
             unique_labels = detections[:, -1].cpu().unique()
             if decodedBoxes.is_cuda:
                 unique_labels = unique_labels.cuda()
                 detections = detections.cuda()
-             
+            
+            # iterate each class
             for c in unique_labels:
+                # find all bboxes that class is equal to current class
                 detections_class = detections[detections[:, -1] == c]
 
-                # sorting object by conf*class
+                # descending bboxes by conf*class
                 _, conf_sort_index = torch.sort(detections_class[:, 4]*detections_class[:, 5], descending=True)
-                detections_class = detections_class[conf_sort_index]
+                sorted_detections = detections_class[conf_sort_index]
                 
                 # suppress non maximum box
                 max_detections = []
-                while detections_class.size(0):
+                while sorted_detections.size(0):
                     # iterate the rest of the class, and check iou with nms_thres
-                    max_detections.append(detections_class[0].unsqueeze(0))
-                    if len(detections_class) == 1:
+                    max_detections.append(sorted_detections[0].unsqueeze(0))
+                    if len(sorted_detections) == 1:
                         break
-                    ious = self.calculateIOU(max_detections[-1], detections_class[1:])
-                    detections_class = detections_class[1:][ious < self.nms_thres]
+                    ious = self.calculateIOU(max_detections[-1][:,:4], sorted_detections[1:,:4]).squeeze(0)
+                    # keep bboxes that ious < T
+                    sorted_detections = sorted_detections[1:][(ious < self.nms_thres)]
                     
                 max_detections = torch.cat(max_detections).data
                 
@@ -540,6 +547,14 @@ class YoloV3(nn.Module):
                 # Add max detections to outputs
                 output[i] = max_detections if output[i] is None else torch.cat((output[i], max_detections))
             
-            
-                
-                
+            if output[i] is not None:
+                output[i]           = output[i].cpu().numpy()
+                # convert to x,y,w,h
+                box_xy, box_wh      = (output[i][:, 0:2] + output[i][:, 2:4])/2, output[i][:, 2:4] - output[i][:, 0:2]
+                # normalized scale
+                output[i][:, :2]    = box_xy
+                output[i][:, 2:4]   = box_wh
+
+        return output
+    
+        
